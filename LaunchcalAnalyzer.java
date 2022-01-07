@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +21,45 @@ class LaunchcalAnalyzer {
 	private static String FRAMEWORK_MANIFEST = "FrameworksBaseCoreResAndroidManifest.xml";
 	private static String DOWNLOADPROVIDER_MANIFEST = "PackagesProvidersDownloadProviderAndroidManifest.xml";
 	
+	public enum AndroidMbaPolicyPermissions {
+		ACCESS_NOTIFICATIONS("android.permission.ACCESS_NOTIFICATIONS", 
+				"13.2.6.Notification access and notification listeners policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#notification-access-and-notification-listeners-policy"),
+		RETRIEVE_WINDOW_CONTENT("android.permission.RETRIEVE_WINDOW_CONTENT", 
+				"Accessibility and UI automation policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#accessibility-and-ui-automation-policy"),
+		OBSERVE_APP_USAGE("android.permission.OBSERVE_APP_USAGE", 
+				"13.2.8 App and network usage statistics policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#app-and-network-usage-statistics-policy"),
+		PACKAGE_USAGE_STATS("android.permission.PACKAGE_USAGE_STATS", 
+				"13.2.8 App and network usage statistics policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#app-and-network-usage-statistics-policy"),
+		GET_APP_OPS_STATS("android.permission.GET_APP_OPS_STATS", 
+				"13.2.8 App and network usage statistics policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#app-and-network-usage-statistics-policy"),
+		READ_NETWORK_USAGE_HISTORY("android.permission.READ_NETWORK_USAGE_HISTORY", 
+				"13.2.8 App and network usage statistics policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#app-and-network-usage-statistics-policy"),
+		DUMP("android.permission.DUMP", 
+				"13.2.8 App and network usage statistics policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#app-and-network-usage-statistics-policy"),
+		CHANGE_COMPONENT_ENABLED_STATE("android.permission.CHANGE_COMPONENT_ENABLED_STATE", 
+				"13.2.9 Forced or keep enabled apps policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#forced-or-keep-enabled-apps-policy"),
+		SHARED_UID("NO_PERMISSION_CHECK_UID", 
+				"13.2.10 Shared System UIDs policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy");
+		public final String name;
+		public final String policy;
+		public final String link;
+
+		AndroidMbaPolicyPermissions(String n, String p, String l) {
+			this.name = n;
+			this.policy = p;
+			this.link = l;
+		}
+	}
+
 	public class AndroidManifest {
 		public Map<String, Permission> definedPermissionsMap;
 		public Map<String, Permission> usedPermissionsMap;
@@ -89,6 +129,7 @@ class LaunchcalAnalyzer {
 					manifestDetails.definedPermissionsMap.put(name, new Permission(name, protectionLevel));
 				}
 			}
+			//Used Permissions
 			if (qName.equalsIgnoreCase("uses-permission")) {
 				String name = attributes.getValue("android:name");
 				String protectionLevel = "";
@@ -149,6 +190,9 @@ class LaunchcalAnalyzer {
 				System.out.println("Details for package: "+appManifest.packageName);
 				System.out.println("\tShared Uid? : "+appManifest.sharedUid);
 				System.out.println("\nUsage type\tPermission Name\tDefined ProtectionLevel");
+
+				//Loop through used permissions
+				//Pull the protection level from known Manifests (Framework, app)
 				for(String permission : appManifest.usedPermissionsMap.keySet()) {
 					String protectionLevel = "NOT FOUND";
 					if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
@@ -160,10 +204,100 @@ class LaunchcalAnalyzer {
 					else if(appManifest.definedPermissionsMap.containsKey(permission)) {
 						protectionLevel = appManifest.definedPermissionsMap.get(permission).protectionLevel;
 					}
-					System.out.println("uses-permission\t"+permission+"\t"+protectionLevel);
+					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
 				}
+
+				//Print out the defined permissions
+				// - Maybe do some checking for trailing spaces (same as Asset)?
 				for(String permission : appManifest.definedPermissionsMap.keySet()) {
-					System.out.println("permission\t"+permission+"\t"+appManifest.definedPermissionsMap.get(permission).protectionLevel);
+					System.out.println(String.format("permission\t%-80s\t%-10s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
+				}
+
+				//Loop again through used permissions and flag any concerns for followup
+				//MBA POLICY
+				System.out.println("\n\nMBA Policy concerns:");
+				for(String permission : appManifest.usedPermissionsMap.keySet()) {
+					String mbaConcern = "";
+					for(AndroidMbaPolicyPermissions mba : AndroidMbaPolicyPermissions.values()) {
+						if(permission.equals(mba.name)) {
+							System.out.println("uses-permission\t"+permission);
+							System.out.println("\t"+mba.policy);
+							System.out.println("\t"+mba.link);
+						}
+					}
+				}
+				//shared UID - 13.2.10
+				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
+				//Covers all UIDs defined in Process.java:
+				//Values in 1xxx and Shell 2000
+				if(appManifest.sharedUid != null) {
+					System.out.println("App sharedUid value: "+appManifest.sharedUid);		
+					System.out.println("\tCheck: ");
+					System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.policy);
+					System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.link);
+				}
+
+				//targetSdk value
+				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
+				System.out.println("\ntargetSdk Check:");
+				try {
+					path = args[0].replace(" ", "\\ ")+"/apktool.yml";
+					String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+path};
+					Process p = Runtime.getRuntime().exec(cmd);
+					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+					String line;
+					while((line = reader.readLine()) != null) {
+						System.out.println(line);
+					}
+					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+					while((line = reader.readLine()) != null) {
+						System.out.println(line);
+					}
+				} catch (IOException e) {
+					System.out.println(e);
+				}
+
+				//apksign
+				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
+				System.out.println("\napk Signage Check");
+				try {
+					path = args[0].replace(" ", "\\ ")+".apk";
+					String[] cmd = {"sh", "-c", "/cygdrive/c/Android/AndroidSDK/build-tools/30.0.2/apksigner.bat verify -verbose -print-certs "+path};
+					//System.out.println(cmd[2]);
+					Process p = Runtime.getRuntime().exec(cmd);
+					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+					String line;
+					while((line = reader.readLine()) != null) {
+						if(line.contains("Verified using")) {
+						    System.out.println(line);
+						}
+					}
+					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+					while((line = reader.readLine()) != null) {
+						System.out.println(line);
+					}
+				} catch (IOException e) {
+					System.out.println(e);
+				}
+
+				//compressed libraries
+				System.out.println("\napk Compressed Libs Check");
+				try {
+					path = args[0].replace(" ", "\\ ")+".apk";
+					String[] cmd = {"sh", "-c", "unzip -v "+path+" 'lib/*.so'"};
+					//System.out.println(cmd[2]);
+					Process p = Runtime.getRuntime().exec(cmd);
+					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+					String line;
+					while((line = reader.readLine()) != null) {
+						    System.out.println(line);
+					}
+					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+					while((line = reader.readLine()) != null) {
+						System.out.println(line);
+					}
+				} catch (IOException e) {
+					System.out.println(e);
 				}
 			}
 			catch (FileNotFoundException e) {
