@@ -20,6 +20,20 @@ class LaunchcalAnalyzer {
 	private static String APP_MANIFEST = "AndroidManifest.xml";
 	private static String FRAMEWORK_MANIFEST = "FrameworksBaseCoreResAndroidManifest.xml";
 	private static String DOWNLOADPROVIDER_MANIFEST = "PackagesProvidersDownloadProviderAndroidManifest.xml";
+	private AndroidManifest frameworkManifest;
+	private AndroidManifest downloadProviderManifest;
+
+	public LaunchcalAnalyzer() {
+		ClassLoader classLoader = getClass().getClassLoader();
+		File manifestFile = new File(classLoader.getResource(FRAMEWORK_MANIFEST).getFile());
+		frameworkManifest = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
+		manifestFile = new File(classLoader.getResource(DOWNLOADPROVIDER_MANIFEST).getFile());
+		downloadProviderManifest = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
+	}
 
 	public enum AndroidMbaPolicyPermissions {
 		ACCESS_NOTIFICATIONS("android.permission.ACCESS_NOTIFICATIONS", 
@@ -178,24 +192,14 @@ class LaunchcalAnalyzer {
 		BufferedReader reader;
 		String line;
 		LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
-		ClassLoader classLoader = analyzer.getClass().getClassLoader();
-		File manifestFile = new File(classLoader.getResource(FRAMEWORK_MANIFEST).getFile());
-		AndroidManifest frameworkManifest = analyzer.populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
-		manifestFile = new File(classLoader.getResource(DOWNLOADPROVIDER_MANIFEST).getFile());
-		AndroidManifest downloadProviderManifest = analyzer.populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
-
 		File newApk;
-		File existingApk;
+		File existingApk = null;
 		newApk = analyzer.processApk(args[0]);
 		if(compareTwoApk) {
 			existingApk = analyzer.processApk(args[1]);
 		}
 
-		manifestFile = new File(getApkPath(newApk)+File.separator+APP_MANIFEST);
+		File manifestFile = new File(getApkPath(newApk)+File.separator+APP_MANIFEST);
 		AndroidManifest appManifest = analyzer.populateAndroidPermissions(manifestFile);
 		System.out.println("Details for package: "+appManifest.packageName);
 		System.out.println("\tShared Uid? : "+appManifest.sharedUid);
@@ -204,16 +208,7 @@ class LaunchcalAnalyzer {
 		//Loop through used permissions
 		//Pull the protection level from known Manifests (Framework, app)
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
-			String protectionLevel = "NOT FOUND";
-			if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
-				protectionLevel = frameworkManifest.definedPermissionsMap.get(permission).protectionLevel;
-			}
-			else if(downloadProviderManifest.definedPermissionsMap.containsKey(permission)) {
-				protectionLevel = downloadProviderManifest.definedPermissionsMap.get(permission).protectionLevel;
-			}
-			else if(appManifest.definedPermissionsMap.containsKey(permission)) {
-				protectionLevel = appManifest.definedPermissionsMap.get(permission).protectionLevel;
-			}
+			String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
 			System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
 		}
 
@@ -305,12 +300,65 @@ class LaunchcalAnalyzer {
 			System.out.println(e);
 		}
 
+		//zipalign
+		//https://developer.android.com/studio/command-line/zipalign#usage
+		System.out.println("\napk Zip alignment Check");
+		try {
+			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getName()+" |grep lib"};
+			//System.out.println(cmd[2]);
+			Process p = Runtime.getRuntime().exec(cmd);
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while((line = reader.readLine()) != null) {
+				if(line.contains("BAD")) {
+					System.out.println(line);
+				}
+			}
+			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println(line);
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+		}
 
 		//Compare Delta
-		if(compareTwoApk) {
+		if(compareTwoApk && existingApk != null) {
+			File existingManifestFile = new File(getApkPath(existingApk)+File.separator+APP_MANIFEST);
+			AndroidManifest existingAppManifest = analyzer.populateAndroidPermissions(existingManifestFile);
+
+
+			//Loop through new uses-perm and find in existing
+			System.out.println("\nNewly Introduced Permissions:");
+			for(String permission : appManifest.usedPermissionsMap.keySet()) {
+				if(!existingAppManifest.usedPermissionsMap.containsKey(permission)) {
+					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
+					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+				}
+			}
+			//Loop through existing uses-perm and find in new 
+			System.out.println("Removed Permissions:");
+			for(String permission : existingAppManifest.usedPermissionsMap.keySet()) {
+				if(!appManifest.usedPermissionsMap.containsKey(permission)) {
+					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
+					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+				}
+			}
 		}
 	}
 
+	public String findPermissionProtectionLevel(String permission, AndroidManifest appManifest) {
+		String protectionLevel = "NOT FOUND";
+		if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
+			protectionLevel = frameworkManifest.definedPermissionsMap.get(permission).protectionLevel;
+		}
+		else if(downloadProviderManifest.definedPermissionsMap.containsKey(permission)) {
+			protectionLevel = downloadProviderManifest.definedPermissionsMap.get(permission).protectionLevel;
+		}
+		else if(appManifest.definedPermissionsMap.containsKey(permission)) {
+			protectionLevel = appManifest.definedPermissionsMap.get(permission).protectionLevel;
+		}
+		return protectionLevel;
+	}
 	public static String getApkPath(File apk) {
 		return apk.getName().replace(".apk", "");
 	}
