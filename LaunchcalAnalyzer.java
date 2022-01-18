@@ -20,7 +20,7 @@ class LaunchcalAnalyzer {
 	private static String APP_MANIFEST = "AndroidManifest.xml";
 	private static String FRAMEWORK_MANIFEST = "FrameworksBaseCoreResAndroidManifest.xml";
 	private static String DOWNLOADPROVIDER_MANIFEST = "PackagesProvidersDownloadProviderAndroidManifest.xml";
-	
+
 	public enum AndroidMbaPolicyPermissions {
 		ACCESS_NOTIFICATIONS("android.permission.ACCESS_NOTIFICATIONS", 
 				"13.2.6.Notification access and notification listeners policy",
@@ -166,146 +166,191 @@ class LaunchcalAnalyzer {
 	}
 
 	public static void main(String[] args) {
+		boolean compareTwoApk = false;
 		if(args.length < 1) {
-			System.out.println("Usage: LaunchcalAnalyzer <PATH to Decoded apk>");
+			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
+			System.out.println("Usage for Updated apks: LaunchcalAnalyzer <PATH to New apk> <PATH to Existing apk>");
+			return;
+		}
+		else if(args.length > 1) {
+			compareTwoApk = true;
+		}
+		BufferedReader reader;
+		String line;
+		LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
+		ClassLoader classLoader = analyzer.getClass().getClassLoader();
+		File manifestFile = new File(classLoader.getResource(FRAMEWORK_MANIFEST).getFile());
+		AndroidManifest frameworkManifest = analyzer.populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
+		manifestFile = new File(classLoader.getResource(DOWNLOADPROVIDER_MANIFEST).getFile());
+		AndroidManifest downloadProviderManifest = analyzer.populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
+
+		File newApk;
+		File existingApk;
+		newApk = analyzer.processApk(args[0]);
+		if(compareTwoApk) {
+			existingApk = analyzer.processApk(args[1]);
+		}
+
+		manifestFile = new File(getApkPath(newApk)+File.separator+APP_MANIFEST);
+		AndroidManifest appManifest = analyzer.populateAndroidPermissions(manifestFile);
+		System.out.println("Details for package: "+appManifest.packageName);
+		System.out.println("\tShared Uid? : "+appManifest.sharedUid);
+		System.out.println("\nUsage type\tPermission Name\tDefined ProtectionLevel");
+
+		//Loop through used permissions
+		//Pull the protection level from known Manifests (Framework, app)
+		for(String permission : appManifest.usedPermissionsMap.keySet()) {
+			String protectionLevel = "NOT FOUND";
+			if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
+				protectionLevel = frameworkManifest.definedPermissionsMap.get(permission).protectionLevel;
+			}
+			else if(downloadProviderManifest.definedPermissionsMap.containsKey(permission)) {
+				protectionLevel = downloadProviderManifest.definedPermissionsMap.get(permission).protectionLevel;
+			}
+			else if(appManifest.definedPermissionsMap.containsKey(permission)) {
+				protectionLevel = appManifest.definedPermissionsMap.get(permission).protectionLevel;
+			}
+			System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+		}
+
+		//Print out the defined permissions
+		// - Maybe do some checking for trailing spaces (same as Asset)?
+		for(String permission : appManifest.definedPermissionsMap.keySet()) {
+			System.out.println(String.format("permission\t%-80s\t%-10s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
+		}
+
+		//Loop again through used permissions and flag any concerns for followup
+		//MBA POLICY
+		System.out.println("\n\nMBA Policy concerns:");
+		for(String permission : appManifest.usedPermissionsMap.keySet()) {
+			String mbaConcern = "";
+			for(AndroidMbaPolicyPermissions mba : AndroidMbaPolicyPermissions.values()) {
+				if(permission.equals(mba.name)) {
+					System.out.println("uses-permission\t"+permission);
+					System.out.println("\t"+mba.policy);
+					System.out.println("\t"+mba.link);
+				}
+			}
+		}
+		//shared UID - 13.2.10
+		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
+		//Covers all UIDs defined in Process.java:
+		//Values in 1xxx and Shell 2000
+		if(appManifest.sharedUid != null) {
+			System.out.println("App sharedUid value: "+appManifest.sharedUid);		
+			System.out.println("\tCheck: ");
+			System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.policy);
+			System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.link);
+		}
+
+		//targetSdk value
+		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
+		System.out.println("\ntargetSdk Check:");
+		try {
+			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
+			Process p = Runtime.getRuntime().exec(cmd);
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println("Input: "+line);
+
+			}
+			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println("Error: "+line);
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+		}
+
+		//apksign
+		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
+		System.out.println("\napk Signage Check");
+		try {
+			String[] cmd = {"sh", "-c", "apksigner.bat verify -verbose -print-certs "+newApk.getName()};
+			//System.out.println(cmd[2]);
+			Process p = Runtime.getRuntime().exec(cmd);
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while((line = reader.readLine()) != null) {
+				if(line.contains("Verified using")) {
+					System.out.println(line);
+				}
+			}
+			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println(line);
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+		}
+
+		//compressed libraries
+		System.out.println("\napk Compressed Libs Check");
+		try {
+			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getName()+" 'lib/*.so'"};
+			//System.out.println(cmd[2]);
+			Process p = Runtime.getRuntime().exec(cmd);
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println(line);
+			}
+			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println(line);
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+		}
+
+
+		//Compare Delta
+		if(compareTwoApk) {
+		}
+	}
+
+	public static String getApkPath(File apk) {
+		return apk.getName().replace(".apk", "");
+	}
+	public File processApk(String apkName) {
+		File apk = new File(apkName);
+		if(!apk.isFile()) {
+			System.out.println("Input: "+apkName+" is not a File");
+			//throw new IOException("Input: "+args[1]+" is not a File");
+		}
+		String existingApkPath = getApkPath(apk);
+		File checkDir = new File(existingApkPath);
+		if(checkDir.isDirectory()) {
+			System.out.println("WARNING - looks like apk is already decoded!!!!!");
 		}
 		else {
-			try {
-				LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
-				AndroidManifest frameworkManifest = analyzer.populateAndroidPermissions(FRAMEWORK_MANIFEST);
-			        System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
-			        System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
-				AndroidManifest downloadProviderManifest = analyzer.populateAndroidPermissions(DOWNLOADPROVIDER_MANIFEST);
-			        System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
-			        System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
-
-				File appDir = new File(args[0]);
-				if(!appDir.isDirectory()) {
-					throw new IOException("Input: "+args[0]+" is not a directory");
-				}
-				String path = appDir.getAbsolutePath();
-				System.out.println("Analyzing permissions in : "+path+"/"+APP_MANIFEST);
-				BufferedReader reader = new BufferedReader(new FileReader(path+"/"+APP_MANIFEST));
-				AndroidManifest appManifest = analyzer.populateAndroidPermissions(path+"/"+APP_MANIFEST);
-				System.out.println("Details for package: "+appManifest.packageName);
-				System.out.println("\tShared Uid? : "+appManifest.sharedUid);
-				System.out.println("\nUsage type\tPermission Name\tDefined ProtectionLevel");
-
-				//Loop through used permissions
-				//Pull the protection level from known Manifests (Framework, app)
-				for(String permission : appManifest.usedPermissionsMap.keySet()) {
-					String protectionLevel = "NOT FOUND";
-					if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
-						protectionLevel = frameworkManifest.definedPermissionsMap.get(permission).protectionLevel;
-					}
-					else if(downloadProviderManifest.definedPermissionsMap.containsKey(permission)) {
-						protectionLevel = downloadProviderManifest.definedPermissionsMap.get(permission).protectionLevel;
-					}
-					else if(appManifest.definedPermissionsMap.containsKey(permission)) {
-						protectionLevel = appManifest.definedPermissionsMap.get(permission).protectionLevel;
-					}
-					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
-				}
-
-				//Print out the defined permissions
-				// - Maybe do some checking for trailing spaces (same as Asset)?
-				for(String permission : appManifest.definedPermissionsMap.keySet()) {
-					System.out.println(String.format("permission\t%-80s\t%-10s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
-				}
-
-				//Loop again through used permissions and flag any concerns for followup
-				//MBA POLICY
-				System.out.println("\n\nMBA Policy concerns:");
-				for(String permission : appManifest.usedPermissionsMap.keySet()) {
-					String mbaConcern = "";
-					for(AndroidMbaPolicyPermissions mba : AndroidMbaPolicyPermissions.values()) {
-						if(permission.equals(mba.name)) {
-							System.out.println("uses-permission\t"+permission);
-							System.out.println("\t"+mba.policy);
-							System.out.println("\t"+mba.link);
+			decodeApk(apk);
+		}
+		return apk;
+	}
+	public void decodeApk(File apk) {
+		try {
+			System.out.println("Decoding: "+apk.getName());
+			String[] cmdD = {"sh", "-c", "apktool.bat d "+apk.getName()};
+			System.out.println("Running: "+cmdD[2]);
+			Process pD = Runtime.getRuntime().exec(cmdD);
+			BufferedReader reader = new BufferedReader(new InputStreamReader(pD.getInputStream()));
+			String line;
+			while((line = reader.readLine()) != null) {
+				System.out.println("Input: "+line);
+				//Not sure how to wait for apktool the right way.
+				//Hack and break at the end of processing
+				if(line.contains("Copying META-INF") ||
+						line.contains("Copying original files")) {
+					break;
 						}
-					}
-				}
-				//shared UID - 13.2.10
-				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
-				//Covers all UIDs defined in Process.java:
-				//Values in 1xxx and Shell 2000
-				if(appManifest.sharedUid != null) {
-					System.out.println("App sharedUid value: "+appManifest.sharedUid);		
-					System.out.println("\tCheck: ");
-					System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.policy);
-					System.out.println("\t"+AndroidMbaPolicyPermissions.SHARED_UID.link);
-				}
-
-				//targetSdk value
-				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
-				System.out.println("\ntargetSdk Check:");
-				try {
-					path = args[0].replace(" ", "\\ ")+"/apktool.yml";
-					String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+path};
-					Process p = Runtime.getRuntime().exec(cmd);
-					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-					String line;
-					while((line = reader.readLine()) != null) {
-						System.out.println(line);
-					}
-					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-					while((line = reader.readLine()) != null) {
-						System.out.println(line);
-					}
-				} catch (IOException e) {
-					System.out.println(e);
-				}
-
-				//apksign
-				//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
-				System.out.println("\napk Signage Check");
-				try {
-					path = args[0].replace(" ", "\\ ")+".apk";
-					String[] cmd = {"sh", "-c", "/cygdrive/c/Android/AndroidSDK/build-tools/30.0.2/apksigner.bat verify -verbose -print-certs "+path};
-					//System.out.println(cmd[2]);
-					Process p = Runtime.getRuntime().exec(cmd);
-					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-					String line;
-					while((line = reader.readLine()) != null) {
-						if(line.contains("Verified using")) {
-						    System.out.println(line);
-						}
-					}
-					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-					while((line = reader.readLine()) != null) {
-						System.out.println(line);
-					}
-				} catch (IOException e) {
-					System.out.println(e);
-				}
-
-				//compressed libraries
-				System.out.println("\napk Compressed Libs Check");
-				try {
-					path = args[0].replace(" ", "\\ ")+".apk";
-					String[] cmd = {"sh", "-c", "unzip -v "+path+" 'lib/*.so'"};
-					//System.out.println(cmd[2]);
-					Process p = Runtime.getRuntime().exec(cmd);
-					reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-					String line;
-					while((line = reader.readLine()) != null) {
-						    System.out.println(line);
-					}
-					reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-					while((line = reader.readLine()) != null) {
-						System.out.println(line);
-					}
-				} catch (IOException e) {
-					System.out.println(e);
-				}
 			}
-			catch (FileNotFoundException e) {
-				System.out.println(e);
-			}
-			catch (IOException e) {
-				System.out.println(e);
-			}
+			System.out.println("Done reading Input");
+		}
+		catch (IOException e) {
+			System.out.println(e);
 		}
 	}
 
@@ -313,12 +358,12 @@ class LaunchcalAnalyzer {
 	// This requires periodically downloading manifests from:
 	// 	frameworks/base/core/res/AndroidManifest.xml
 	// 	frameworks/base/core/res/AndroidManifest.xml
-	public AndroidManifest populateAndroidPermissions(String manifestFileName) {
+	public AndroidManifest populateAndroidPermissions(File manifestFile) {
 		try {
 			SAXParserFactory factory = SAXParserFactory.newInstance();
 			SAXParser saxParser = factory.newSAXParser();
 			AndroidManifestXmlHandler handler = new AndroidManifestXmlHandler();
-			saxParser.parse(manifestFileName, handler);
+			saxParser.parse(manifestFile, handler);
 			return handler.getManifestDetails();
 
 		}
