@@ -60,6 +60,9 @@ class LaunchcalAnalyzer {
 		CHANGE_COMPONENT_ENABLED_STATE("android.permission.CHANGE_COMPONENT_ENABLED_STATE", 
 				"13.2.9 Forced or keep enabled apps policy",
 				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#forced-or-keep-enabled-apps-policy"),
+		INSTALL_PACKAGES("android.permission.INSTALL_PACKAGES", 
+				"13.3.3 App installation policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#package-downloader-installer"),
 		SHARED_UID("NO_PERMISSION_CHECK_UID", 
 				"13.2.10 Shared System UIDs policy",
 				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy");
@@ -181,6 +184,8 @@ class LaunchcalAnalyzer {
 
 	public static void main(String[] args) {
 		boolean compareTwoApk = false;
+		boolean usesForegroundService = false;
+
 		if(args.length < 1) {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
 			System.out.println("Usage for Updated apks: LaunchcalAnalyzer <PATH to New apk> <PATH to Existing apk>");
@@ -223,6 +228,9 @@ class LaunchcalAnalyzer {
 		System.out.println("\n\nMBA Policy concerns:");
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
 			String mbaConcern = "";
+			if(permission.contains("FOREGROUND_SERVICE")) {
+				usesForegroundService = true;
+			}
 			for(AndroidMbaPolicyPermissions mba : AndroidMbaPolicyPermissions.values()) {
 				if(permission.equals(mba.name)) {
 					System.out.println("uses-permission\t"+permission);
@@ -235,6 +243,7 @@ class LaunchcalAnalyzer {
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
 		//Covers all UIDs defined in Process.java:
 		//Values in 1xxx and Shell 2000
+		System.out.println("Shared UID check - https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy");
 		if(appManifest.sharedUid != null) {
 			System.out.println("App sharedUid value: "+appManifest.sharedUid);		
 			System.out.println("\tCheck: ");
@@ -244,7 +253,7 @@ class LaunchcalAnalyzer {
 
 		//targetSdk value
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
-		System.out.println("\ntargetSdk Check:");
+		System.out.println("\ntargetSdk Check: https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -261,9 +270,17 @@ class LaunchcalAnalyzer {
 			System.out.println(e);
 		}
 
+		//Loop through uses-permissions to check for FOREGROUND_SERVICE
+		if(usesForegroundService) {
+			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
+			System.out.println("\tGoogle’s enforcement is April 1st 2022");
+		}
+		
 		//apksign
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
 		System.out.println("\napk Signage Check");
+		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
+		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
 			String[] cmd = {"sh", "-c", "apksigner.bat verify -verbose -print-certs "+newApk.getName()};
 			//System.out.println(cmd[2]);
@@ -284,6 +301,7 @@ class LaunchcalAnalyzer {
 
 		//compressed libraries
 		System.out.println("\napk Compressed Libs Check");
+		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
 		try {
 			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getName()+" 'lib/*.so'"};
 			//System.out.println(cmd[2]);
@@ -303,6 +321,7 @@ class LaunchcalAnalyzer {
 		//zipalign
 		//https://developer.android.com/studio/command-line/zipalign#usage
 		System.out.println("\napk Zip alignment Check");
+		System.out.println("https://developer.android.com/studio/command-line/zipalign#usage");
 		try {
 			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getName()+" |grep lib"};
 			//System.out.println(cmd[2]);
@@ -328,7 +347,7 @@ class LaunchcalAnalyzer {
 
 
 			//Loop through new uses-perm and find in existing
-			System.out.println("\nNewly Introduced Permissions:");
+			System.out.println("\nADDED Permissions:");
 			for(String permission : appManifest.usedPermissionsMap.keySet()) {
 				if(!existingAppManifest.usedPermissionsMap.containsKey(permission)) {
 					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
@@ -336,7 +355,7 @@ class LaunchcalAnalyzer {
 				}
 			}
 			//Loop through existing uses-perm and find in new 
-			System.out.println("Removed Permissions:");
+			System.out.println("REMOVED Permissions:");
 			for(String permission : existingAppManifest.usedPermissionsMap.keySet()) {
 				if(!appManifest.usedPermissionsMap.containsKey(permission)) {
 					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
