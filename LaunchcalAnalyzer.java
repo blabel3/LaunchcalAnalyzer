@@ -18,18 +18,20 @@ import org.xml.sax.helpers.DefaultHandler;
 
 class LaunchcalAnalyzer {
 	private static String APP_MANIFEST = "AndroidManifest.xml";
-	private static String FRAMEWORK_MANIFEST = "FrameworksBaseCoreResAndroidManifest.xml";
-	private static String DOWNLOADPROVIDER_MANIFEST = "PackagesProvidersDownloadProviderAndroidManifest.xml";
-	private AndroidManifest frameworkManifest;
-	private AndroidManifest downloadProviderManifest;
+	private static String S_FRAMEWORK_MANIFEST = "S_FrameworksBaseCoreResAndroidManifest.xml";
+	private static String S_DOWNLOADPROVIDER_MANIFEST = "S_PackagesProvidersDownloadProviderAndroidManifest.xml";
+	private static String T_FRAMEWORK_MANIFEST = "T_FrameworksBaseCoreResAndroidManifest.xml";
+	private static String T_DOWNLOADPROVIDER_MANIFEST = "T_PackagesProvidersDownloadProviderAndroidManifest.xml";
+	public AndroidManifest frameworkManifest;
+	public AndroidManifest downloadProviderManifest;
 
 	public LaunchcalAnalyzer() {
 		ClassLoader classLoader = getClass().getClassLoader();
-		File manifestFile = new File(classLoader.getResource(FRAMEWORK_MANIFEST).getFile());
+		File manifestFile = new File(classLoader.getResource(S_FRAMEWORK_MANIFEST).getFile());
 		frameworkManifest = populateAndroidPermissions(manifestFile);
 		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
 		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
-		manifestFile = new File(classLoader.getResource(DOWNLOADPROVIDER_MANIFEST).getFile());
+		manifestFile = new File(classLoader.getResource(S_DOWNLOADPROVIDER_MANIFEST).getFile());
 		downloadProviderManifest = populateAndroidPermissions(manifestFile);
 		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
 		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
@@ -189,6 +191,25 @@ class LaunchcalAnalyzer {
 		if(args.length < 1) {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
 			System.out.println("Usage for Updated apks: LaunchcalAnalyzer <PATH to New apk> <PATH to Existing apk>");
+			//Run a comparison of S vs. T manifest - temporary!!!!
+			LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
+			System.out.println("The following is a comparison of the S manifest to T manifests - this can be disabled.");
+			File manifestFile = new File(LaunchcalAnalyzer.class.getClassLoader().getResource(T_FRAMEWORK_MANIFEST).getFile());
+			AndroidManifest TframeworkManifest = analyzer.populateAndroidPermissions(manifestFile);
+			System.out.println("Size of Framework Manifest permission declarations: "+TframeworkManifest.definedPermissionsMap.size());
+			System.out.println("Size of Framework Manifest permission usages: "+TframeworkManifest.usedPermissionsMap.size());
+			manifestFile = new File(LaunchcalAnalyzer.class.getClassLoader().getResource(S_DOWNLOADPROVIDER_MANIFEST).getFile());
+			AndroidManifest TdownloadProviderManifest = analyzer.populateAndroidPermissions(manifestFile);
+			System.out.println("Size of Framework Manifest permission declarations: "+TdownloadProviderManifest.definedPermissionsMap.size());
+			System.out.println("Size of Framework Manifest permission usages: "+TdownloadProviderManifest.usedPermissionsMap.size());
+			for(String s : analyzer.frameworkManifest.definedPermissionsMap.keySet()) {
+				//System.out.println("\t"+s+"\t"+analyzer.frameworkManifest.definedPermissionsMap.get(s).protectionLevel);
+				if(!TframeworkManifest.definedPermissionsMap.containsKey(s)) {
+					System.out.println("\t"+s+"\t"+TframeworkManifest.definedPermissionsMap.get(s).protectionLevel);
+				}
+			}
+			
+
 			return;
 		}
 		else if(args.length > 1) {
@@ -275,7 +296,7 @@ class LaunchcalAnalyzer {
 			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
 			System.out.println("\tGoogle’s enforcement is April 1st 2022");
 		}
-		
+
 		//apksign
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
 		System.out.println("\napk Signage Check");
