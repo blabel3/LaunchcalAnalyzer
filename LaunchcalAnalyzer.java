@@ -38,6 +38,42 @@ class LaunchcalAnalyzer {
 	}
 
 	public enum AndroidMbaPolicyPermissions {
+		READ_CALL_LOG("android.permission.READ_CALL_LOG",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		WRITE_CALL_LOG("android.permission.WRITE_CALL_LOG",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		PROCESS_OUTGOING_CALLS("android.permission.PROCESS_OUTGOING_CALLS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		READ_SMS("android.permission.READ_SMS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		SEND_SMS("android.permission.SEND_SMS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		WRITE_SMS("android.permission.WRITE_SMS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		RECEIVE_SMS("android.permission.RECEIVE_SMS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		RECEIVE_WAP_PUSH("android.permission.RECEIVE_WAP_PUSH",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
+		RECEIVE_MMS("android.permission.RECEIVE_MMS",
+				"13.2.3 SMS and call log permissions policy",
+				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#sms-call-log",
+				"GtsSmsCallLogTestCases"),
 		ACCESS_NOTIFICATIONS("android.permission.ACCESS_NOTIFICATIONS", 
 				"13.2.6.Notification access and notification listeners policy",
 				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#notification-access-and-notification-listeners-policy"),
@@ -77,11 +113,19 @@ class LaunchcalAnalyzer {
 		public final String name;
 		public final String policy;
 		public final String link;
+		public final String impactedTest;
 
 		AndroidMbaPolicyPermissions(String n, String p, String l) {
 			this.name = n;
 			this.policy = p;
 			this.link = l;
+			this.impactedTest = "";
+		}
+		AndroidMbaPolicyPermissions(String n, String p, String l, String t) {
+			this.name = n;
+			this.policy = p;
+			this.link = l;
+			this.impactedTest = t;
 		}
 	}
 
@@ -215,7 +259,7 @@ class LaunchcalAnalyzer {
 					System.out.println("\t"+s+"\t"+TframeworkManifest.definedPermissionsMap.get(s).protectionLevel);
 				}
 			}
-			
+
 
 			return;
 		}
@@ -264,6 +308,9 @@ class LaunchcalAnalyzer {
 					System.out.println("uses-permission\t"+permission);
 					System.out.println("\t"+mba.policy);
 					System.out.println("\t"+mba.link);
+					if(!mba.impactedTest.isEmpty()) {
+						System.out.println("\tCheck Google Compliance Test: "+mba.impactedTest);
+					}
 				}
 			}
 		}
