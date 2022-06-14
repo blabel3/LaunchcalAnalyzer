@@ -65,6 +65,12 @@ class LaunchcalAnalyzer {
 		INSTALL_PACKAGES("android.permission.INSTALL_PACKAGES", 
 				"13.3.3 App installation policy",
 				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#package-downloader-installer"),
+		REQUEST_INSTALL_PACKAGES("android.permission.REQUEST_INSTALL_PACKAGES", 
+				"Check bz/229232652",
+				"https://support.google.com/googleplay/android-developer/answer/11899428#install_package_preview"),
+		READ_LOGS("android.permission.READ_LOGS", 
+				"13.2.12 Device Logs access policy",
+				"https://docs.partner.android.com/gms/policies/preview/mba#device-logs-access-policy and see internal doc: https://docs.google.com/document/d/1_iJRdsg5bo7ofJjWHUmDK2Osfs2Cj8P1pWqToiFLDAo/edit#heading=h.tpepte7hw9je"),
 		SHARED_UID("NO_PERMISSION_CHECK_UID", 
 				"13.2.10 Shared System UIDs policy",
 				"https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy");
@@ -187,6 +193,7 @@ class LaunchcalAnalyzer {
 	public static void main(String[] args) {
 		boolean compareTwoApk = false;
 		boolean usesForegroundService = false;
+		String targetSdkVal = "";
 
 		if(args.length < 1) {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
@@ -280,7 +287,8 @@ class LaunchcalAnalyzer {
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			while((line = reader.readLine()) != null) {
-				System.out.println("Input: "+line);
+				targetSdkVal = line;
+				System.out.println("targetSdk: "+targetSdkVal);
 
 			}
 			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
@@ -294,7 +302,7 @@ class LaunchcalAnalyzer {
 		//Loop through uses-permissions to check for FOREGROUND_SERVICE
 		if(usesForegroundService) {
 			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
-			System.out.println("\tGoogle’s enforcement is April 1st 2022");
+			System.out.println("\tGoogle enforcement deadline is December 15, 2022");
 		}
 
 		//apksign
@@ -361,6 +369,16 @@ class LaunchcalAnalyzer {
 			System.out.println(e);
 		}
 
+		System.out.println("");
+		if(compareTwoApk && existingApk != null) {
+			System.out.println("Delta Review between: "+newApk.getName()+" and "+existingApk.getName());
+		}
+		else {
+			System.out.println("Details for: "+newApk.getName()); 
+		}
+		System.out.println("Details for package: "+appManifest.packageName);
+		System.out.println("targetSdk: "+targetSdkVal);
+		System.out.println("Modified Permissions");
 		//Compare Delta
 		if(compareTwoApk && existingApk != null) {
 			File existingManifestFile = new File(getApkPath(existingApk)+File.separator+APP_MANIFEST);
@@ -368,7 +386,8 @@ class LaunchcalAnalyzer {
 
 
 			//Loop through new uses-perm and find in existing
-			System.out.println("\nADDED Permissions:");
+			System.out.println("{noformat}");
+			System.out.println("ADDED Permissions:");
 			for(String permission : appManifest.usedPermissionsMap.keySet()) {
 				if(!existingAppManifest.usedPermissionsMap.containsKey(permission)) {
 					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
@@ -383,6 +402,7 @@ class LaunchcalAnalyzer {
 					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
 				}
 			}
+			System.out.println("{noformat}");
 		}
 	}
 
