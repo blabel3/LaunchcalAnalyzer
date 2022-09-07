@@ -238,6 +238,7 @@ class LaunchcalAnalyzer {
 		boolean compareTwoApk = false;
 		boolean usesForegroundService = false;
 		String targetSdkVal = "";
+		String apkVersionName = "";
 
 		if(args.length < 1) {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
@@ -346,6 +347,24 @@ class LaunchcalAnalyzer {
 			System.out.println(e);
 		}
 
+		//Pull target apk versionName
+		System.out.println("\nversionName Check.....");
+		try {
+			String[] cmd = {"sh", "-c", "grep -R 'versionName' "+getApkPath(newApk)+"/"+"apktool.yml"};
+			Process p = Runtime.getRuntime().exec(cmd);
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while((line = reader.readLine()) != null) {
+				apkVersionName = line;
+				System.out.println("versionName: "+apkVersionName);
+
+			}
+			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+			while((line = reader.readLine()) != null) {
+				System.out.println("Error: "+line);
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+		}
 		//Loop through uses-permissions to check for FOREGROUND_SERVICE
 		if(usesForegroundService) {
 			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
@@ -424,12 +443,15 @@ class LaunchcalAnalyzer {
 			System.out.println("Details for: "+newApk.getName()); 
 		}
 		System.out.println("Details for package: "+appManifest.packageName);
+		System.out.println("versionName: "+apkVersionName);
 		System.out.println("targetSdk: "+targetSdkVal);
 		System.out.println("Modified Permissions");
 		//Compare Delta
 		if(compareTwoApk && existingApk != null) {
 			File existingManifestFile = new File(getApkPath(existingApk)+File.separator+APP_MANIFEST);
 			AndroidManifest existingAppManifest = analyzer.populateAndroidPermissions(existingManifestFile);
+			boolean dangerousPermissions = false;
+			boolean privilegedPermissions = false;
 
 
 			//Loop through new uses-perm and find in existing
@@ -439,6 +461,12 @@ class LaunchcalAnalyzer {
 				if(!existingAppManifest.usedPermissionsMap.containsKey(permission)) {
 					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
 					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+					if(protectionLevel.contains("dangerous")) {
+						dangerousPermissions = true;
+					}
+					if(protectionLevel.contains("privileged")) {
+						privilegedPermissions = true;
+					}
 				}
 			}
 			//Loop through existing uses-perm and find in new 
@@ -447,9 +475,23 @@ class LaunchcalAnalyzer {
 				if(!appManifest.usedPermissionsMap.containsKey(permission)) {
 					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
 					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+					if(protectionLevel.contains("dangerous")) {
+						dangerousPermissions = true;
+					}
+					if(protectionLevel.contains("privileged")) {
+						privilegedPermissions = true;
+					}
 				}
 			}
 			System.out.println("{noformat}");
+
+			if(dangerousPermissions) {
+				System.out.println("Note: Dangerous permissions modified - check for pre-grant requirements.");
+				System.out.println("\tSee MBA 13.2.2 Pregrant permission policy for more details -\n\thttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-pregrant-permissions.");
+			}
+			if(privilegedPermissions) {
+				System.out.println("Note: Privilged permissions modified - modify privapp-permissions xml when integrating.");
+			}
 		}
 	}
 
