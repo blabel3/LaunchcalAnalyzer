@@ -17,24 +17,37 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 class LaunchcalAnalyzer {
+	private static String currentOS = "Android S";
+	private static String nextOS = "Android T";
 	private static String APP_MANIFEST = "AndroidManifest.xml";
 	private static String S_FRAMEWORK_MANIFEST = "S_FrameworksBaseCoreResAndroidManifest.xml";
 	private static String S_DOWNLOADPROVIDER_MANIFEST = "S_PackagesProvidersDownloadProviderAndroidManifest.xml";
 	private static String T_FRAMEWORK_MANIFEST = "T_FrameworksBaseCoreResAndroidManifest.xml";
 	private static String T_DOWNLOADPROVIDER_MANIFEST = "T_PackagesProvidersDownloadProviderAndroidManifest.xml";
-	public AndroidManifest frameworkManifest;
-	public AndroidManifest downloadProviderManifest;
+	public AndroidManifest frameworkManifestCurrent;
+	public AndroidManifest downloadProviderManifestCurrent;
+	public AndroidManifest frameworkManifestNext;
+	public AndroidManifest downloadProviderManifestNext;
 
 	public LaunchcalAnalyzer() {
 		ClassLoader classLoader = getClass().getClassLoader();
 		File manifestFile = new File(classLoader.getResource(S_FRAMEWORK_MANIFEST).getFile());
-		frameworkManifest = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifest.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifest.usedPermissionsMap.size());
+		frameworkManifestCurrent = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifestCurrent.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifestCurrent.usedPermissionsMap.size());
 		manifestFile = new File(classLoader.getResource(S_DOWNLOADPROVIDER_MANIFEST).getFile());
-		downloadProviderManifest = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifest.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifest.usedPermissionsMap.size());
+		downloadProviderManifestCurrent = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifestCurrent.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifestCurrent.usedPermissionsMap.size());
+
+		manifestFile = new File(classLoader.getResource(T_FRAMEWORK_MANIFEST).getFile());
+		frameworkManifestNext = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifestCurrent.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifestCurrent.usedPermissionsMap.size());
+		manifestFile = new File(classLoader.getResource(T_DOWNLOADPROVIDER_MANIFEST).getFile());
+		downloadProviderManifestNext = populateAndroidPermissions(manifestFile);
+		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifestCurrent.definedPermissionsMap.size());
+		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifestCurrent.usedPermissionsMap.size());
 	}
 
 	public enum AndroidMbaPolicyPermissions {
@@ -239,25 +252,17 @@ class LaunchcalAnalyzer {
 		boolean usesForegroundService = false;
 		String targetSdkVal = "";
 		String apkVersionName = "";
+		LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
 
 		if(args.length < 1) {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
 			System.out.println("Usage for Updated apks: LaunchcalAnalyzer <PATH to New apk> <PATH to Existing apk>");
 			//Run a comparison of S vs. T manifest - temporary!!!!
-			LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
 			System.out.println("The following is a comparison of the S manifest to T manifests - this can be disabled.");
-			File manifestFile = new File(LaunchcalAnalyzer.class.getClassLoader().getResource(T_FRAMEWORK_MANIFEST).getFile());
-			AndroidManifest TframeworkManifest = analyzer.populateAndroidPermissions(manifestFile);
-			System.out.println("Size of Framework Manifest permission declarations: "+TframeworkManifest.definedPermissionsMap.size());
-			System.out.println("Size of Framework Manifest permission usages: "+TframeworkManifest.usedPermissionsMap.size());
-			manifestFile = new File(LaunchcalAnalyzer.class.getClassLoader().getResource(S_DOWNLOADPROVIDER_MANIFEST).getFile());
-			AndroidManifest TdownloadProviderManifest = analyzer.populateAndroidPermissions(manifestFile);
-			System.out.println("Size of Framework Manifest permission declarations: "+TdownloadProviderManifest.definedPermissionsMap.size());
-			System.out.println("Size of Framework Manifest permission usages: "+TdownloadProviderManifest.usedPermissionsMap.size());
-			for(String s : analyzer.frameworkManifest.definedPermissionsMap.keySet()) {
-				//System.out.println("\t"+s+"\t"+analyzer.frameworkManifest.definedPermissionsMap.get(s).protectionLevel);
-				if(!TframeworkManifest.definedPermissionsMap.containsKey(s)) {
-					System.out.println("\t"+s+"\t"+TframeworkManifest.definedPermissionsMap.get(s).protectionLevel);
+			for(String s : analyzer.frameworkManifestCurrent.definedPermissionsMap.keySet()) {
+				//System.out.println("\t"+s+"\t"+analyzer.frameworkManifestCurrent.definedPermissionsMap.get(s).protectionLevel);
+				if(!analyzer.frameworkManifestNext.definedPermissionsMap.containsKey(s)) {
+					System.out.println("\t"+s+"\t"+analyzer.frameworkManifestNext.definedPermissionsMap.get(s).protectionLevel);
 				}
 			}
 
@@ -269,7 +274,6 @@ class LaunchcalAnalyzer {
 		}
 		BufferedReader reader;
 		String line;
-		LaunchcalAnalyzer analyzer = new LaunchcalAnalyzer();
 		File newApk;
 		File existingApk = null;
 		newApk = analyzer.processApk(args[0]);
@@ -281,19 +285,21 @@ class LaunchcalAnalyzer {
 		AndroidManifest appManifest = analyzer.populateAndroidPermissions(manifestFile);
 		System.out.println("Details for package: "+appManifest.packageName);
 		System.out.println("\tShared Uid? : "+appManifest.sharedUid);
-		System.out.println("\nUsage type\tPermission Name\tDefined ProtectionLevel");
+		System.out.println(String.format("Usage type\t%-60s\t%-40s\t%-40s","Permission Name","Defined ProtectionLevel "+currentOS, "Defined ProtectionLevel "+nextOS));
+		//System.out.println("\nUsage type\tPermission Name\tDefined ProtectionLevel "+currentOS+"\tDefined ProtectionLevel "+nextOS);
 
 		//Loop through used permissions
 		//Pull the protection level from known Manifests (Framework, app)
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
-			String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
-			System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
+			String protectionLevelCurrent = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestCurrent, analyzer.downloadProviderManifestCurrent, permission, appManifest);
+			String protectionLevelNext = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestNext, analyzer.downloadProviderManifestNext, permission, appManifest);
+			System.out.println(String.format("uses-permission\t%-60s\t%-40s\t%-40s",permission,protectionLevelCurrent, protectionLevelNext));
 		}
 
 		//Print out the defined permissions
 		// - Maybe do some checking for trailing spaces (same as Asset)?
 		for(String permission : appManifest.definedPermissionsMap.keySet()) {
-			System.out.println(String.format("permission\t%-80s\t%-10s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
+			System.out.println(String.format("permission\t%-60s\t%-40s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
 		}
 
 		//Loop again through used permissions and flag any concerns for followup
@@ -457,28 +463,40 @@ class LaunchcalAnalyzer {
 			//Loop through new uses-perm and find in existing
 			System.out.println("{noformat}");
 			System.out.println("ADDED Permissions:");
+			boolean printColumn = true;
 			for(String permission : appManifest.usedPermissionsMap.keySet()) {
 				if(!existingAppManifest.usedPermissionsMap.containsKey(permission)) {
-					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
-					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
-					if(protectionLevel.contains("dangerous")) {
+					String protectionLevelCurrent = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestCurrent, analyzer.downloadProviderManifestCurrent, permission, appManifest);
+					String protectionLevelNext = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestNext, analyzer.downloadProviderManifestNext, permission, appManifest);
+					if(printColumn) {
+		                            System.out.println(String.format("Usage type\t%-60s\t%-40s\t%-40s","Permission Name","Defined ProtectionLevel "+currentOS, "Defined ProtectionLevel "+nextOS));
+					    printColumn = false;
+					}
+					System.out.println(String.format("uses-permission\t%-60s\t%-40s\t%-40s",permission,protectionLevelCurrent, protectionLevelNext));
+					if(protectionLevelCurrent.contains("dangerous")||protectionLevelNext.contains("dangerous")) {
 						dangerousPermissions = true;
 					}
-					if(protectionLevel.contains("privileged")) {
+					if(protectionLevelCurrent.contains("privileged")||protectionLevelNext.contains("privileged")) {
 						privilegedPermissions = true;
 					}
 				}
 			}
 			//Loop through existing uses-perm and find in new 
 			System.out.println("REMOVED Permissions:");
+			printColumn = true;
 			for(String permission : existingAppManifest.usedPermissionsMap.keySet()) {
 				if(!appManifest.usedPermissionsMap.containsKey(permission)) {
-					String protectionLevel = analyzer.findPermissionProtectionLevel(permission, appManifest);
-					System.out.println(String.format("uses-permission\t%-80s\t%-10s",permission,protectionLevel));
-					if(protectionLevel.contains("dangerous")) {
+					String protectionLevelCurrent = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestCurrent, analyzer.downloadProviderManifestCurrent, permission, appManifest);
+					String protectionLevelNext = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestNext, analyzer.downloadProviderManifestNext, permission, appManifest);
+					if(printColumn) {
+		                            System.out.println(String.format("Usage type\t%-60s\t%-40s\t%-40s","Permission Name","Defined ProtectionLevel "+currentOS, "Defined ProtectionLevel "+nextOS));
+					    printColumn = false;
+					}
+					System.out.println(String.format("uses-permission\t%-60s\t%-40s\t%-40s",permission,protectionLevelCurrent, protectionLevelNext));
+					if(protectionLevelCurrent.contains("dangerous")||protectionLevelNext.contains("dangerous")) {
 						dangerousPermissions = true;
 					}
-					if(protectionLevel.contains("privileged")) {
+					if(protectionLevelCurrent.contains("privileged")||protectionLevelNext.contains("privileged")) {
 						privilegedPermissions = true;
 					}
 				}
@@ -495,7 +513,7 @@ class LaunchcalAnalyzer {
 		}
 	}
 
-	public String findPermissionProtectionLevel(String permission, AndroidManifest appManifest) {
+	public String findPermissionProtectionLevel(AndroidManifest frameworkManifest, AndroidManifest downloadProviderManifest, String permission, AndroidManifest appManifest) {
 		String protectionLevel = "NOT FOUND";
 		if(frameworkManifest.definedPermissionsMap.containsKey(permission)) {
 			protectionLevel = frameworkManifest.definedPermissionsMap.get(permission).protectionLevel;
