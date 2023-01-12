@@ -383,7 +383,7 @@ class LaunchcalAnalyzer {
 		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
 		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
-			String[] cmd = {"sh", "-c", "apksigner.bat verify -verbose -print-certs "+newApk.getName()};
+			String[] cmd = {"sh", "-c", "apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
 			//System.out.println(cmd[2]);
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
@@ -404,7 +404,7 @@ class LaunchcalAnalyzer {
 		System.out.println("\napk Compressed Libs Check");
 		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
 		try {
-			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getName()+" 'lib/*.so'"};
+			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getAbsolutePath()+" 'lib/*.so'"};
 			//System.out.println(cmd[2]);
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
@@ -424,7 +424,7 @@ class LaunchcalAnalyzer {
 		System.out.println("\napk Zip alignment Check");
 		System.out.println("https://developer.android.com/studio/command-line/zipalign#usage");
 		try {
-			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getName()+" |grep lib"};
+			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getAbsolutePath()+" |grep lib"};
 			//System.out.println(cmd[2]);
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
@@ -547,6 +547,7 @@ class LaunchcalAnalyzer {
 		}
 		return apk;
 	}
+
 
 	public void decodeApk(File apk) {
 		try {
