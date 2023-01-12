@@ -526,9 +526,11 @@ class LaunchcalAnalyzer {
 		}
 		return protectionLevel;
 	}
+
 	public static String getApkPath(File apk) {
-		return apk.getName().replace(".apk", "");
+		return apk.getAbsolutePath().replace(".apk", "");
 	}
+
 	public File processApk(String apkName) {
 		File apk = new File(apkName);
 		if(!apk.isFile()) {
@@ -538,33 +540,24 @@ class LaunchcalAnalyzer {
 		String existingApkPath = getApkPath(apk);
 		File checkDir = new File(existingApkPath);
 		if(checkDir.isDirectory()) {
-			System.out.println("WARNING - looks like apk is already decoded!!!!!");
+			System.out.println("WARNING - looks like apk is already decoded!!");
 		}
 		else {
 			decodeApk(apk);
 		}
 		return apk;
 	}
+
 	public void decodeApk(File apk) {
 		try {
 			System.out.println("Decoding: "+apk.getName());
-			String[] cmdD = {"sh", "-c", "apktool.bat d "+apk.getName()};
-			System.out.println("Running: "+cmdD[2]);
-			Process pD = Runtime.getRuntime().exec(cmdD);
-			BufferedReader reader = new BufferedReader(new InputStreamReader(pD.getInputStream()));
-			String line;
-			while((line = reader.readLine()) != null) {
-				System.out.println("Input: "+line);
-				//Not sure how to wait for apktool the right way.
-				//Hack and break at the end of processing
-				if(line.contains("Copying META-INF") ||
-						line.contains("Copying original files")) {
-					break;
-						}
-			}
-			System.out.println("Done reading Input");
+			Process pD = new ProcessBuilder("apktool", "d", apk.getAbsolutePath(), "-o", getApkPath(apk)).inheritIO().start();
+			pD.waitFor();
 		}
 		catch (IOException e) {
+			System.out.println(e);
+		}
+		catch (InterruptedException e) {
 			System.out.println(e);
 		}
 	}
