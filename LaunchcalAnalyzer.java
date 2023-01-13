@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.*;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -29,25 +30,31 @@ class LaunchcalAnalyzer {
 	public AndroidManifest frameworkManifestNext;
 	public AndroidManifest downloadProviderManifestNext;
 
+	static Logger logger = Logger.getLogger("com.motorola.launchcalanalyzer");
+
+	static {
+		System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] %4$-7s: %5$s %n");
+	}
+
 	public LaunchcalAnalyzer() {
 		ClassLoader classLoader = getClass().getClassLoader();
 		File manifestFile = new File(classLoader.getResource(S_FRAMEWORK_MANIFEST).getFile());
 		frameworkManifestCurrent = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifestCurrent.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifestCurrent.usedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission declarations: "+frameworkManifestCurrent.definedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission usages: "+frameworkManifestCurrent.usedPermissionsMap.size());
 		manifestFile = new File(classLoader.getResource(S_DOWNLOADPROVIDER_MANIFEST).getFile());
 		downloadProviderManifestCurrent = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifestCurrent.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifestCurrent.usedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission declarations: "+downloadProviderManifestCurrent.definedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission usages: "+downloadProviderManifestCurrent.usedPermissionsMap.size());
 
 		manifestFile = new File(classLoader.getResource(T_FRAMEWORK_MANIFEST).getFile());
 		frameworkManifestNext = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+frameworkManifestCurrent.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+frameworkManifestCurrent.usedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission declarations: "+frameworkManifestNext.definedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission usages: "+frameworkManifestNext.usedPermissionsMap.size());
 		manifestFile = new File(classLoader.getResource(T_DOWNLOADPROVIDER_MANIFEST).getFile());
 		downloadProviderManifestNext = populateAndroidPermissions(manifestFile);
-		System.out.println("Size of Framework Manifest permission declarations: "+downloadProviderManifestCurrent.definedPermissionsMap.size());
-		System.out.println("Size of Framework Manifest permission usages: "+downloadProviderManifestCurrent.usedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission declarations: "+downloadProviderManifestNext.definedPermissionsMap.size());
+		logger.info("Size of Framework Manifest permission usages: "+downloadProviderManifestNext.usedPermissionsMap.size());
 	}
 
 	public enum AndroidMbaPolicyPermissions {
@@ -320,12 +327,12 @@ class LaunchcalAnalyzer {
 					}
 				}
 			}
-		}
+		}		
 		//shared UID - 13.2.10
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
 		//Covers all UIDs defined in Process.java:
 		//Values in 1xxx and Shell 2000
-		System.out.println("Shared UID check - https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy");
+		System.out.println("\nShared UID check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy\033[0m)");
 		if(appManifest.sharedUid != null) {
 			System.out.println("App sharedUid value: "+appManifest.sharedUid);		
 			System.out.println("\tCheck: ");
@@ -335,7 +342,7 @@ class LaunchcalAnalyzer {
 
 		//targetSdk value
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
-		System.out.println("\ntargetSdk Check: https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies");
+		System.out.println("\ntargetSdk Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -353,15 +360,21 @@ class LaunchcalAnalyzer {
 			System.out.println(e);
 		}
 
+		//Loop through uses-permissions to check for FOREGROUND_SERVICE
+		if(usesForegroundService) {
+			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
+			System.out.println("\tGoogle enforcement deadline is December 15, 2022");
+		}
+
 		//Pull target apk versionName
-		System.out.println("\nversionName Check.....");
+		System.out.println("\nversionName Check:");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'versionName' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			while((line = reader.readLine()) != null) {
 				apkVersionName = line;
-				System.out.println("versionName: "+apkVersionName);
+				System.out.println(apkVersionName.trim());
 
 			}
 			reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
@@ -371,16 +384,10 @@ class LaunchcalAnalyzer {
 		} catch (IOException e) {
 			System.out.println(e);
 		}
-		//Loop through uses-permissions to check for FOREGROUND_SERVICE
-		if(usesForegroundService) {
-			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
-			System.out.println("\tGoogle enforcement deadline is December 15, 2022");
-		}
 
 		//apksign
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
-		System.out.println("\napk Signage Check");
-		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
+		System.out.println("\napk Signage Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
 		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
 			String[] cmd = {"sh", "-c", "apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
@@ -401,8 +408,7 @@ class LaunchcalAnalyzer {
 		}
 
 		//compressed libraries
-		System.out.println("\napk Compressed Libs Check");
-		System.out.println("https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib");
+		System.out.println("\napk Compressed Libs Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getAbsolutePath()+" 'lib/*.so'"};
 			//System.out.println(cmd[2]);
@@ -421,8 +427,7 @@ class LaunchcalAnalyzer {
 
 		//zipalign
 		//https://developer.android.com/studio/command-line/zipalign#usage
-		System.out.println("\napk Zip alignment Check");
-		System.out.println("https://developer.android.com/studio/command-line/zipalign#usage");
+		System.out.println("\napk Zip Alignment Check: (\033[3mhttps://developer.android.com/studio/command-line/zipalign#usage\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getAbsolutePath()+" |grep lib"};
 			//System.out.println(cmd[2]);
@@ -451,7 +456,7 @@ class LaunchcalAnalyzer {
 		System.out.println("Details for package: "+appManifest.packageName);
 		System.out.println("versionName: "+apkVersionName);
 		System.out.println("targetSdk: "+targetSdkVal);
-		System.out.println("Modified Permissions");
+		System.out.println("Modified Permissions:");
 		//Compare Delta
 		if(compareTwoApk && existingApk != null) {
 			File existingManifestFile = new File(getApkPath(existingApk)+File.separator+APP_MANIFEST);
@@ -505,7 +510,7 @@ class LaunchcalAnalyzer {
 
 			if(dangerousPermissions) {
 				System.out.println("Note: Dangerous permissions modified - check for pre-grant requirements.");
-				System.out.println("\tSee MBA 13.2.2 Pregrant permission policy for more details -\n\thttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-pregrant-permissions.");
+				System.out.println("\tSee MBA 13.2.2 Pregrant permission policy for more details. (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-pregrant-permissions\033[0m)");
 			}
 			if(privilegedPermissions) {
 				System.out.println("Note: Privilged permissions modified - modify privapp-permissions xml when integrating.");
@@ -534,13 +539,13 @@ class LaunchcalAnalyzer {
 	public File processApk(String apkName) {
 		File apk = new File(apkName);
 		if(!apk.isFile()) {
-			System.out.println("Input: "+apkName+" is not a File");
-			//throw new IOException("Input: "+args[1]+" is not a File");
+			System.err.println("Input: "+apkName+" is not a File");
+			System.exit(1);
 		}
 		String existingApkPath = getApkPath(apk);
 		File checkDir = new File(existingApkPath);
 		if(checkDir.isDirectory()) {
-			System.out.println("WARNING - looks like apk is already decoded!!");
+			logger.warning("APK folder "+checkDir.getName()+"/ present - apk already decoded!");
 		}
 		else {
 			decodeApk(apk);
@@ -551,15 +556,15 @@ class LaunchcalAnalyzer {
 
 	public void decodeApk(File apk) {
 		try {
-			System.out.println("Decoding: "+apk.getName());
-			Process pD = new ProcessBuilder("apktool", "d", apk.getAbsolutePath(), "-o", getApkPath(apk)).inheritIO().start();
+			logger.info("Decoding: "+apk.getName());
+			Process pD = new ProcessBuilder("apktool", "d", apk.getAbsolutePath(), "-o", getApkPath(apk)).redirectError(ProcessBuilder.Redirect.INHERIT).start();
 			pD.waitFor();
 		}
 		catch (IOException e) {
-			System.out.println(e);
+			System.err.println(e);
 		}
 		catch (InterruptedException e) {
-			System.out.println(e);
+			System.err.println(e);
 		}
 	}
 
