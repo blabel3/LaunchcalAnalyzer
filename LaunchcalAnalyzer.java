@@ -1,7 +1,6 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
@@ -316,7 +315,6 @@ class LaunchcalAnalyzer {
 		//MBA POLICY
 		System.out.println("\n\n*MBA Policy concerns:*");
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
-			String mbaConcern = "";
 			if(permission.contains("FOREGROUND_SERVICE")) {
 				usesForegroundService = true;
 			}
