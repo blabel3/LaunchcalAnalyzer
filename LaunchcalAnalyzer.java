@@ -34,6 +34,7 @@ class LaunchcalAnalyzer {
 
 	static {
 		System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] %4$-7s: %5$s %n");
+		logger.setLevel(Level.WARNING);
 	}
 
 	public LaunchcalAnalyzer() {
@@ -297,6 +298,7 @@ class LaunchcalAnalyzer {
 
 		//Loop through used permissions
 		//Pull the protection level from known Manifests (Framework, app)
+		System.out.println("{noformat}");
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
 			String protectionLevelCurrent = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestCurrent, analyzer.downloadProviderManifestCurrent, permission, appManifest);
 			String protectionLevelNext = analyzer.findPermissionProtectionLevel(analyzer.frameworkManifestNext, analyzer.downloadProviderManifestNext, permission, appManifest);
@@ -308,10 +310,11 @@ class LaunchcalAnalyzer {
 		for(String permission : appManifest.definedPermissionsMap.keySet()) {
 			System.out.println(String.format("permission\t%-60s\t%-40s",permission,appManifest.definedPermissionsMap.get(permission).protectionLevel));
 		}
+		System.out.println("{noformat}");
 
 		//Loop again through used permissions and flag any concerns for followup
 		//MBA POLICY
-		System.out.println("\n\nMBA Policy concerns:");
+		System.out.println("\n\n*MBA Policy concerns:*");
 		for(String permission : appManifest.usedPermissionsMap.keySet()) {
 			String mbaConcern = "";
 			if(permission.contains("FOREGROUND_SERVICE")) {
@@ -332,7 +335,7 @@ class LaunchcalAnalyzer {
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
 		//Covers all UIDs defined in Process.java:
 		//Values in 1xxx and Shell 2000
-		System.out.println("\nShared UID check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy\033[0m)");
+		System.out.println("\n*Shared UID check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy\033[0m)");
 		if(appManifest.sharedUid != null) {
 			System.out.println("App sharedUid value: "+appManifest.sharedUid);		
 			System.out.println("\tCheck: ");
@@ -342,7 +345,7 @@ class LaunchcalAnalyzer {
 
 		//targetSdk value
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
-		System.out.println("\ntargetSdk Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies\033[0m)");
+		System.out.println("\n*targetSdk Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -362,12 +365,12 @@ class LaunchcalAnalyzer {
 
 		//Loop through uses-permissions to check for FOREGROUND_SERVICE
 		if(usesForegroundService) {
-			System.out.println("\tNOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!");
+			System.out.println("\t_NOTE: app uses FOREGROUND_SERVICE so on Android S must target SDK 31!_");
 			System.out.println("\tGoogle enforcement deadline is December 15, 2022");
 		}
 
 		//Pull target apk versionName
-		System.out.println("\nversionName Check:");
+		System.out.println("\n*versionName Check:*");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'versionName' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -387,7 +390,7 @@ class LaunchcalAnalyzer {
 
 		//apksign
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
-		System.out.println("\napk Signage Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
+		System.out.println("\n*apk Signage Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
 		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
 			String[] cmd = {"sh", "-c", "apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
@@ -408,7 +411,7 @@ class LaunchcalAnalyzer {
 		}
 
 		//compressed libraries
-		System.out.println("\napk Compressed Libs Check: (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
+		System.out.println("\n*apk Compressed Libs Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getAbsolutePath()+" 'lib/*.so'"};
 			//System.out.println(cmd[2]);
@@ -427,7 +430,7 @@ class LaunchcalAnalyzer {
 
 		//zipalign
 		//https://developer.android.com/studio/command-line/zipalign#usage
-		System.out.println("\napk Zip Alignment Check: (\033[3mhttps://developer.android.com/studio/command-line/zipalign#usage\033[0m)");
+		System.out.println("\n*apk Zip Alignment Check:* (\033[3mhttps://developer.android.com/studio/command-line/zipalign#usage\033[0m)");
 		try {
 			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getAbsolutePath()+" |grep lib"};
 			//System.out.println(cmd[2]);
@@ -448,7 +451,7 @@ class LaunchcalAnalyzer {
 
 		System.out.println("");
 		if(compareTwoApk && existingApk != null) {
-			System.out.println("Delta Review between: "+newApk.getName()+" and "+existingApk.getName());
+			System.out.println("*Delta Review* between: "+newApk.getName()+" and "+existingApk.getName());
 		}
 		else {
 			System.out.println("Details for: "+newApk.getName()); 
@@ -545,7 +548,7 @@ class LaunchcalAnalyzer {
 		String existingApkPath = getApkPath(apk);
 		File checkDir = new File(existingApkPath);
 		if(checkDir.isDirectory()) {
-			logger.warning("APK folder "+checkDir.getName()+"/ present - apk already decoded!");
+			logger.info("APK folder "+checkDir.getName()+"/ present - apk already decoded!");
 		}
 		else {
 			decodeApk(apk);
