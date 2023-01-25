@@ -2,8 +2,8 @@
 
 Requirements:
 
-java
-apktool (install from https://ibotpeaches.github.io/Apktool/install/ or package repository - apktool)
-apksigner (install from SDKManager or package repository - android-sdk-build-tools)
-unzip (install via package repository)
-zipalign (install via package repository)
+* java (I am using openjdk 11.0.17)
+* apktool (install from https://ibotpeaches.github.io/Apktool/install/ or package repository - `apktool`)
+* apksigner (install from SDKManager or package repository - `android-sdk-build-tools`)
+* unzip (install via package repository)
+* zipalign (install via package repository)
