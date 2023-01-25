@@ -29,8 +29,9 @@ class LaunchcalAnalyzer {
 	public AndroidManifest frameworkManifestNext;
 	public AndroidManifest downloadProviderManifestNext;
 
+	static Logger logger = Logger.getLogger("com.motorola.launchcalanalyzer");
+
 	static {
-		Logger logger = Logger.getLogger("com.motorola.launchcalanalyzer");
 		System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] %4$-7s: %5$s %n");
 		logger.setLevel(Level.WARNING);
 	}
