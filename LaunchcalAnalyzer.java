@@ -265,13 +265,13 @@ class LaunchcalAnalyzer {
 			System.out.println("Usage for New     apks: LaunchcalAnalyzer <PATH to New apk>");
 			System.out.println("Usage for Updated apks: LaunchcalAnalyzer <PATH to New apk> <PATH to Existing apk>");
 			//Run a comparison of S vs. T manifest - temporary!!!!
-			System.out.println("The following is a comparison of the S manifest to T manifests - this can be disabled.");
+			/*System.out.println("The following is a comparison of the S manifest to T manifests - this can be disabled.");
 			for(String s : analyzer.frameworkManifestCurrent.definedPermissionsMap.keySet()) {
 				//System.out.println("\t"+s+"\t"+analyzer.frameworkManifestCurrent.definedPermissionsMap.get(s).protectionLevel);
-				if(!analyzer.frameworkManifestNext.definedPermissionsMap.containsKey(s)) {
+				if(analyzer.frameworkManifestNext.definedPermissionsMap.containsKey(s)) {
 					System.out.println("\t"+s+"\t"+analyzer.frameworkManifestNext.definedPermissionsMap.get(s).protectionLevel);
 				}
-			}
+			}*/
 
 
 			return;
