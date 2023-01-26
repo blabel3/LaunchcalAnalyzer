@@ -391,7 +391,7 @@ class LaunchcalAnalyzer {
 		System.out.println("\n*apk Signage Check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib)");
 		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
-			String[] cmd = {"sh", "-c", "apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
+			String[] cmd = {"sh", "-c", "java -jar /usr/bin/apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
 			//System.out.println(cmd[2]);
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
