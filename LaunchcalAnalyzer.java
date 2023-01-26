@@ -333,7 +333,7 @@ class LaunchcalAnalyzer {
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy
 		//Covers all UIDs defined in Process.java:
 		//Values in 1xxx and Shell 2000
-		System.out.println("\n*Shared UID check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy\033[0m)");
+		System.out.println("\n*Shared UID check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#shared-system-uids-policy)");
 		if(appManifest.sharedUid != null) {
 			System.out.println("App sharedUid value: "+appManifest.sharedUid);		
 			System.out.println("\tCheck: ");
@@ -343,7 +343,7 @@ class LaunchcalAnalyzer {
 
 		//targetSdk value
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
-		System.out.println("\n*targetSdk Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies\033[0m)");
+		System.out.println("\n*targetSdk Check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies)");
 		try {
 			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
 			Process p = Runtime.getRuntime().exec(cmd);
@@ -388,7 +388,7 @@ class LaunchcalAnalyzer {
 
 		//apksign
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib
-		System.out.println("\n*apk Signage Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
+		System.out.println("\n*apk Signage Check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib)");
 		System.out.println("Signature, compressed libs and page align conformance checked via GtsJniUncompressHostTestCases results");
 		try {
 			String[] cmd = {"sh", "-c", "apksigner verify -verbose -print-certs "+newApk.getAbsolutePath()};
@@ -409,7 +409,7 @@ class LaunchcalAnalyzer {
 		}
 
 		//compressed libraries
-		System.out.println("\n*apk Compressed Libs Check:* (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib\033[0m)");
+		System.out.println("\n*apk Compressed Libs Check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#jni-lib)");
 		try {
 			String[] cmd = {"sh", "-c", "unzip -v "+newApk.getAbsolutePath()+" 'lib/*.so'"};
 			//System.out.println(cmd[2]);
@@ -428,7 +428,7 @@ class LaunchcalAnalyzer {
 
 		//zipalign
 		//https://developer.android.com/studio/command-line/zipalign#usage
-		System.out.println("\n*apk Zip Alignment Check:* (\033[3mhttps://developer.android.com/studio/command-line/zipalign#usage\033[0m)");
+		System.out.println("\n*apk Zip Alignment Check:* (https://developer.android.com/studio/command-line/zipalign#usage)");
 		try {
 			String[] cmd = {"sh", "-c", "zipalign -c -p -v 4 "+newApk.getAbsolutePath()+" |grep lib"};
 			//System.out.println(cmd[2]);
@@ -511,7 +511,7 @@ class LaunchcalAnalyzer {
 
 			if(dangerousPermissions) {
 				System.out.println("Note: Dangerous permissions modified - check for pre-grant requirements.");
-				System.out.println("\tSee MBA 13.2.2 Pregrant permission policy for more details. (\033[3mhttps://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-pregrant-permissions\033[0m)");
+				System.out.println("\tSee MBA 13.2.2 Pregrant permission policy for more details. (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-pregrant-permissions)");
 			}
 			if(privilegedPermissions) {
 				System.out.println("Note: Privilged permissions modified - modify privapp-permissions xml when integrating.");
