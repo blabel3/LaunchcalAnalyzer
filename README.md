@@ -7,3 +7,5 @@ Requirements:
 * apksigner (install from SDKManager or package repository - `android-sdk-build-tools`)
 * unzip (install via package repository)
 * zipalign (install via package repository)
+
+Install all from package repository: `$ sudo apt install default-jdk apktool android-sdk-build-tools unzip zipalign`
