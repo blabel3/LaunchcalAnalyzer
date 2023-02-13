@@ -288,7 +288,7 @@ class LaunchcalAnalyzer {
 			existingApk = analyzer.processApk(args[1]);
 		}
 
-		File manifestFile = new File(getApkPath(newApk)+File.separator+APP_MANIFEST);
+		File manifestFile = new File(getApkPath(newApk)+"-"+APP_MANIFEST);
 		AndroidManifest appManifest = analyzer.populateAndroidPermissions(manifestFile);
 		System.out.println("Details for package: "+appManifest.packageName);
 		System.out.println("\tShared Uid? : "+appManifest.sharedUid);
@@ -345,7 +345,7 @@ class LaunchcalAnalyzer {
 		//https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies
 		System.out.println("\n*targetSdk Check:* (https://docs.partner.android.com/gms/policies/domains/mba?authuser=3#mba-security-policies)");
 		try {
-			String[] cmd = {"sh", "-c", "grep -R 'targetSdk' "+getApkPath(newApk)+"/"+"apktool.yml"};
+			String[] cmd = {"apkanalyzer", "manifest", "target-sdk", newApk.getAbsolutePath()};
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			while((line = reader.readLine()) != null) {
@@ -370,7 +370,7 @@ class LaunchcalAnalyzer {
 		//Pull target apk versionName
 		System.out.println("\n*versionName Check:*");
 		try {
-			String[] cmd = {"sh", "-c", "grep -R 'versionName' "+getApkPath(newApk)+"/"+"apktool.yml"};
+			String[] cmd = {"apkanalyzer", "manifest", "version-name", newApk.getAbsolutePath()};
 			Process p = Runtime.getRuntime().exec(cmd);
 			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			while((line = reader.readLine()) != null) {
@@ -460,7 +460,7 @@ class LaunchcalAnalyzer {
 		System.out.println("Modified Permissions:");
 		//Compare Delta
 		if(compareTwoApk && existingApk != null) {
-			File existingManifestFile = new File(getApkPath(existingApk)+File.separator+APP_MANIFEST);
+			File existingManifestFile = new File(getApkPath(existingApk)+"-"+APP_MANIFEST);
 			AndroidManifest existingAppManifest = analyzer.populateAndroidPermissions(existingManifestFile);
 			boolean dangerousPermissions = false;
 			boolean privilegedPermissions = false;
@@ -544,9 +544,9 @@ class LaunchcalAnalyzer {
 			System.exit(1);
 		}
 		String existingApkPath = getApkPath(apk);
-		File checkDir = new File(existingApkPath);
-		if(checkDir.isDirectory()) {
-			logger.info("APK folder "+checkDir.getName()+"/ present - apk already decoded!");
+		File checkFile = new File(existingApkPath + "-" + APP_MANIFEST);
+		if(checkFile.exists() && !checkFile.isDirectory()) {
+			logger.info("Android Manifest "+checkFile.getName()+"/ present - apk already decoded!");
 		}
 		else {
 			decodeApk(apk);
@@ -557,9 +557,12 @@ class LaunchcalAnalyzer {
 
 	public void decodeApk(File apk) {
 		try {
-			logger.info("Decoding: "+apk.getName());
-			Process pD = new ProcessBuilder("apktool", "d", apk.getAbsolutePath(), "-o", getApkPath(apk)).redirectError(ProcessBuilder.Redirect.INHERIT).start();
-			pD.waitFor();
+			logger.info("Getting AndroidManifest.xml: "+apk.getName());
+			ProcessBuilder printManifest = new ProcessBuilder("apkanalyzer", "manifest", "print", apk.getAbsolutePath());
+			printManifest.redirectOutput(new File(getApkPath(apk) + "-" +APP_MANIFEST));
+			Process writeManifest = printManifest.start();
+			//Process pD = new ProcessBuilder("apktool", "d", apk.getAbsolutePath(), "-o", getApkPath(apk)).redirectError(ProcessBuilder.Redirect.INHERIT).start();
+			writeManifest.waitFor();
 		}
 		catch (IOException e) {
 			System.err.println(e);
