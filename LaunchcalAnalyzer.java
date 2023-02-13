@@ -213,6 +213,18 @@ class LaunchcalAnalyzer {
 			if (qName.equalsIgnoreCase("permission")) {
 				String name = attributes.getValue("android:name");
 				String protectionLevel = attributes.getValue("android:protectionLevel");
+				switch (protectionLevel) {
+					case "0x2":
+						protectionLevel = "signature";
+						break;
+					case "0x10":
+						protectionLevel = "privileged";
+						break;
+					case "0x12":
+					case "0x13":
+						protectionLevel = "signature|privileged";
+						break;
+				}
 				//System.out.println("Permission: "+name+" with protectionLevel"+protectionLevel);
 				if(!manifestDetails.definedPermissionsMap.containsKey(name)) {
 					manifestDetails.definedPermissionsMap.put(name, new Permission(name, protectionLevel));
